@@ -9,6 +9,8 @@
 # 
 # But I didn't use or port any of his code. 
 
+require(shape)
+
 # TODO:
 # for sets with many (four or more?) 1- or 2-member parties, 
 # cut the set of parties with three or fewer members into two sets
@@ -35,22 +37,25 @@ fontsize=14
 
 
 circlesPerShell <- function (shell, circlediameter, radiusmultiplier) {
-  A <- floor(pi*shell*radiusmultiplier / circlediameter)
-  B <- (pi*shell*radiusmultiplier / circlediameter) %% 1
-  theta <- getTheta(shell*radiusmultiplier, circlediameter) # IN RADIANS
-  return (list(A,B,theta))
+  A <- floor(pi * shell * radiusmultiplier / circlediameter)
+  B <- (pi * shell * radiusmultiplier / circlediameter) %% 1
+  theta <- getTheta(shell * radiusmultiplier, circlediameter) # IN RADIANS
+  return (list(A, B, theta))
 }
+
 
 getTheta <- function(radius, circlediameter) {
   theta <- asin(circlediameter * 0.5 /radius)
   return(theta) # IN RADIANS
 }
 
+
 getPhi <- function(balls, theta){
   radlength <- pi - (2 * theta)
   phi <- radlength / (balls - 1)
   return (phi) # In RADIANS
 }
+
 
 popOneAndRecompute <- function(row, frame, circlediameter) {
   if (frame[row,]$balls > 2 ) {
@@ -69,6 +74,7 @@ popOneAndRecompute <- function(row, frame, circlediameter) {
 #   shell balls      frac      theta    arcsep
 # 4 4       9   0.2277585 0.11903088 0.3629414
 
+
 # figure the position of one ball:
 ballPosition <- function (radius, balldiameter, position, theta, arcsep) {
   
@@ -83,6 +89,7 @@ ballPosition <- function (radius, balldiameter, position, theta, arcsep) {
   return(list(x,y) )
 }
 
+
 # Here's the logic:
 # largest group 
 # third largest group
@@ -91,24 +98,21 @@ ballPosition <- function (radius, balldiameter, position, theta, arcsep) {
 # second largest group
 # helps contiguity of small parties where many parties exist. Shouldn't affect two party systems at all
 orderPartiesForPrinting <- function (parties) {
-  vect<- (c(which.max(parties$count), order(parties$count)))
+  vect <- (c(which.max(parties$count), order(parties$count)))
   vect[length(vect)] <- NA
-  vect<- vect[1:(length(vect)-1)]   
+  vect <- vect[1:(length(vect) - 1)]   
   return(vect)  
 }
 
+
 orderPFP <- function(somevector) {
-  v<- as.vector(somevector)
-#  vect<- (c(which.max(v), order(v), decreasing=F))
-#  vect[length(vect)] <- NA
-#  vect<- vect[1:(length(vect)-1)]   
+  v <- as.vector(somevector)
   vect <- as.vector(order(v, decreasing=T))
   vect[length(v)+1] <- vect[2]
   vect <- vect[-2]
-    
-return(vect)  
-  
+  return(vect)  
 }
+
 
 #     skip if parties$remaining is zero
 #     IF shell is greater than parties$remaining, THEN print one on this line no matter what, and decrement "remaining". 
@@ -120,6 +124,7 @@ return(vect)
 
 ########################################################
 # apportions percentages into integer ball counts:
+
 
 thisRowMatrix <- function(shell,ballframe,partyframe){ 
   # create temporary matrix from the count of parties:  
@@ -197,7 +202,7 @@ apportionThisRow <- function(shell, ballframe, partyframe) {
   
   # may have to adjust the actual ball count on each row for each party positively or negatively
   # (thus, the carry fraction might be negative, or positive and greater than one)
-  thisrowm <- thisRowMatrix(shell,ballframe,partyframe)
+  thisrowm <- thisRowMatrix(shell, ballframe, partyframe)
   
   # now we know how to apportion them for this row.
   #  print(thisrowm)
@@ -211,26 +216,25 @@ populateShells <- function(r, ballcount, balldiameter, radiusmultiplier) {
   flag <- TRUE
   while (flag) {
     tempcount <- sum(shells$balls) 
-    thisshell <-circlesPerShell(r,balldiameter, radiusmultiplier)
+    thisshell <- circlesPerShell(r, balldiameter, radiusmultiplier)
     cshell <- (r)
     ballshellcount <- thisshell[[1]]
     tempcount <- (tempcount + ballshellcount)
     frac <- thisshell[[2]]
     theta <- thisshell[[3]]
     arcsep <- getPhi(ballshellcount, theta)
-    shells[r,1:5] <- as.vector(c(r,ballshellcount,frac,theta,arcsep))
+    shells[r,1:5] <- as.vector(c(r, ballshellcount, frac, theta, arcsep))
     
     while(tempcount  > ballcount) {
-      print("will exceed the count with this shell.", quote=F )
+      message("Will exceed the count with this shell; will pop one and recompute.")
       shells <- popOneAndRecompute(cshell, shells, balldiameter)
       #     print(shells)
       #    shells[cshell,1:5] <- as.vector(c(cshell,ballshellcount,frac,theta,arcsep))
       tempcount <- sum(shells$balls)
-      print(cshell)
-      print(tempcount)
-      cshell <- (cshell - 1)
+      message(sprintf('cshell count: %s; Temp count for this row: %s', cshell, tempcount))
+      cshell <- cshell - 1
       if(cshell < 1) { cshell <- (r) }
-      ballsum <- (tempcount)
+      ballsum <- tempcount
       print(ballsum)  
     }
     tempcount <- (ballsum + ballshellcount)  
@@ -300,10 +304,14 @@ plotParliamentDiagram <- function(pos,shells,labeltext, cexval, yheight) {
   return(1)
 }
 
-determineColors <- function(pos, shells, parties, partycountvector) {
+
+determineColors <- function(pos,
+                            shells,
+                            parties,
+                            partycountvector) {
   partyorder <- orderPFP(partycountvector) # (largest, third largest, fourth largest, ... smallest, second largest)
-  remaining <- as.vector(parties$remaining, mode="numeric")
-  counter <- (1)
+  remaining <- as.vector(parties$remaining, mode = "numeric")
+  counter <- 1
   # Now, by row, assign the proportion of each party to the count of cells in this matrix row.
   # For fractions, add and carry until they reach the next whole number.
   
@@ -330,12 +338,13 @@ determineColors <- function(pos, shells, parties, partycountvector) {
     
     # This HAS TO BE TRUE:
     stopifnot(shells[i,]$balls == sum(tmpmt[,2])) 
-    #    print ("AIEEEE you can't do that -- the computed balls on this shell is NOT the same as the count in the shells data frame.")
+    # print ("AIEEEE you can't do that -- the computed balls on this shell 
+    # is NOT the same as the count in the shells data frame.")
     
-    for (j in partyorder ) {
-      thispartyballcount <- tmpmt[j,2]
-      print(paste(parties[j,]$color,parties[j,]$Shortname, sep=": "))
-      pos[c(counter:(counter+thispartyballcount)),]$fillcolor <- parties[j,]$color
+    for (j in partyorder) {
+      thispartyballcount <- tmpmt[j, 2]
+      print(paste(parties[j,]$color, parties[j,]$Shortname, sep=""))
+      pos[c(counter:(counter + thispartyballcount)),]$fillcolor <- parties[j,]$color
       counter <- ( counter + thispartyballcount )
     }
     print(counter)
@@ -346,13 +355,19 @@ determineColors <- function(pos, shells, parties, partycountvector) {
   return(pos)
 }
 
-PNGparliamentdiagram <- function(pos,shells,ballcount,pngtitle,fontsize,graphics,outline,boxsize,cexval, yheight) {
-  if (missing(graphics)){ graphics="quartz" }
-  if (missing(outline)) { outline=FALSE }
-  if (missing(fontsize)){ fontsize <- 14 }
-  if (missing(boxsize)) { boxsize <- c(8,5) }
-  if (missing(cexval)){  cexval <- 1.5 }
-  
+
+PNGparliamentdiagram <- function(pos,
+                                 shells,
+                                 ballcount,
+                                 pngtitle,
+                                 yheight,
+                                 fontsize = 14,
+                                 graphics = "quartz",
+                                 outline = FALSE,
+                                 boxsize = c(8,5),
+                                 cexval = 1.5
+                                 ) {
+
   png(filename=paste(pngtitle,"parliamentdiagram",".png", sep=""), 
       res=300, 
       bg="white", 
@@ -390,13 +405,18 @@ drawOutline <- function(shells){
   
 }
 
-SVGparliamentdiagram <- function(pos,shells,ballcount,svgtitle,fontsize,graphics,outline,boxsize, cexval, yheight) {
-  if (missing(graphics)){ graphics <- "quartz" }
-  if (missing(outline)) { outline=FALSE }
-  if (missing(fontsize)){ fontsize <- 14 }
-  if (missing(boxsize)){ boxsize <- c(8,5) }
-  if (missing(cexval)){  cexval <- 1.5 }
-    
+SVGparliamentdiagram <- function(pos,
+                                 shells,
+                                 ballcount,
+                                 svgtitle,
+                                 yheight,
+                                 fontsize = 14,
+                                 graphics = "quartz",
+                                 outline = FALSE,
+                                 boxsize = c(8,5),
+                                 cexval = 1.5
+                                 ) {
+
   svg(filename=paste(svgtitle,"parliamentdiagram",".svg", sep=""),
       width = boxsize[1], 
       height = boxsize[2], 
@@ -416,13 +436,13 @@ SVGparliamentdiagram <- function(pos,shells,ballcount,svgtitle,fontsize,graphics
 }
 
 
-makeProportionalShells <- function(r, ballcount, balldiameter, ballspacing,proportion) {
-  if (missing(r)){  r <- 3 }
-  if (missing(balldiameter)){  balldiameter <- 0.95 }
-  if (missing(ballspacing)){  ballspacing <- 1 }
-  if (missing(proportion)){  proportion <- 0.381966 } #  (2 - phi)
-  
-  shells <-(0)
+makeProportionalShells <- function(ballcount,
+                                   r = 3,
+                                   balldiameter = 0.95,
+                                   ballspacing = 1,
+                                   proportion = 0.381966) { #  (2 - phi)
+
+  shells <- 0
   shells <- populateShells(r, ballcount, balldiameter, ballspacing)
   while(r < (nrow(shells) * proportion)) {
     r <- r + 1

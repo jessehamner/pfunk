@@ -1,35 +1,45 @@
-library(rvest)
+library(xml2)
 require(shape)
+library(rvest)
+library(httr)
 
 source("parliament.R")
 
-# rVestTutorial.R : get the data for the US Congress, 
-# then make two parliament diagrams automagically.
-# This code creates both SVG and PNG versions for each chamber.
+# Red, Blue, Yellow, White:
+partycolors <- as.vector( c("#bb0000", "#0000de", "#f0f000", "#ffffff"), mode="character")
+
+# rVestTutorial.R : get the data for a parliament diagram automagically.
+# Then spit out a few graphics.
 # 
 # Jesse Hamner
 # jhamner@gmail.com
-# V1.0, March 2015
+# V1.1, August 2018
+
 
 
 ################ Main #################
 
-house <- html("http://en.wikipedia.org/wiki/Current_members_of_the_United_States_House_of_Representatives")
+housepage <- "http://en.wikipedia.org/wiki/Current_members_of_the_United_States_House_of_Representatives"
+hp1 <- GET(housepage)
+if(identical(status_code(hp1), 200L)){
+  house <- read_html(hp1)
+} else {
+  stop()
+}
 
-# Get the sixth table on the page:
+
+# Get the seventh table on the page:
 replist <- house %>%
 html_nodes("table") %>%
-.[[6]] %>% html_table()
+.[[7]] %>% html_table()
 
-# The Minnesota Democrats are listed as "DFL"
-replist$Party[which(replist$Party=="DFL")] <- "Democratic"
+# The Minnesota Democrats are, in places, listed as "DFL"
+# replist$Party[which(replist$Party=="DFL")] <- "Democratic"
 keeps <- which(variable.names(replist) != "")
 cleaned <- replist[,keeps,drop=FALSE]
 membercount <- nrow(cleaned)
-partylist<-unique(replist$Party)
+partylist<-unique(replist[,4])
 
-# Red, Blue, Yellow, White:
-partycolors <- as.vector( c("#bb0000", "#0000de", "#f0f000", "#ffffff"), mode="character")
 
 parties <- data.frame(party=partylist, 
                       count=(0),
@@ -43,17 +53,17 @@ parties <- data.frame(party=partylist,
 # parties$party <- factor(parties$party)
 
 for (p in partylist){
-  parties[which(parties$party==p),]$count <- length(which(cleaned$Party==p))
+  parties[which(parties$party == p),]$count <- length(which(cleaned$Party.1 == p))
 }
-parties$frac=parties$count/parties$mbrtotal
-parties$remaining=parties$count
+parties$frac = parties$count/parties$mbrtotal
+parties$remaining = parties$count
 pngtitle <- "GRAPHIC"
 
-########################################################################################################
-########              Parliament diagrams don't always look like "your" parliament.         ############
-########      This type is a hollowed-out semicircle, more like the Wikipedia diagrams      ############
-########                    of the United States Congress House and Senate                  ############
-########################################################################################################
+####################################################################################
+####          Parliament diagrams don't always look like "your" parliament.     ####
+####  This type is a hollowed-out semicircle, more like the Wikipedia diagrams  ####
+####                of the United States Congress House and Senate              ####
+####################################################################################
 
 # basic parameters:
 balldiameter <- 0.95 # aesthetics
@@ -103,7 +113,7 @@ stopifnot (nrow(pos) == sum(parties$count)) # watch those off-by-one errors
 PNGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     pngtitle="USHouse2015",
+                     pngtitle="USHouse2020",
                      fontsize=14,
                      graphics="quartz",
                      outline=F, 
@@ -115,7 +125,7 @@ PNGparliamentdiagram(pos,
 SVGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     svgtitle="USHouse2015",
+                     svgtitle="USHouse2020",
                      fontsize=14,
                      graphics="quartz",
                      outline=F, 
@@ -128,18 +138,31 @@ SVGparliamentdiagram(pos,
 # OK, now for the Senate:
 
 # senate <- html("http://en.wikipedia.org/wiki/United_States_Senate")
-senate <- html("http://en.wikipedia.org/wiki/List_of_current_United_States_Senators")
+senate <- read_html("http://en.wikipedia.org/wiki/List_of_current_United_States_Senators")
 senlist <- senate %>%
   html_nodes("table") %>%
-  .[[6]] %>% html_table() # 2 is the short table, 6 is the long table
+  .[[5]] %>% html_table(fill = TRUE) # 1 is the short table, 5 is the long table
+
+names(senlist) <- c("State", "Image", "Senator", "Party", "Party.1", "Born",
+                    "Occupation", "PreviousOffice", "AssumedOffice", "TermUp",
+                    "Residence")
 
 # The Minnesota Democrats are listed as "DFL"
-senlist$Party[which(senlist$Party=="DFL")] <- "Democratic"
-senlist$Party[which(senlist$Party=="Democratic-Farmer-Labor")] <- "Democratic"
+senlist$Party.1[which(senlist$Party.1 == "DFL")] <- "Democratic"
+senlist$Party.1[which(senlist$Party.1 == "Democratic-Farmer-Labor")] <- "Democratic"
+senlist$Party.1[which(senlist$Party.1 == "")] <- "Independent"
+senlist$Party.1[which(grepl('Independent', senlist$Party.1))] <- "Independent"
 keeps <- which(variable.names(senlist) != "")
 cleaned <- senlist[,keeps,drop=FALSE]
 membercount <- nrow(cleaned)
-partylist<-unique(senlist$Party)
+
+party = senate %>%
+  html_nodes("table") %>%
+  .[[5]] %>% html_nodes("style") %>% html_attrs()
+partylist<-unique(senlist$Party.1)
+
+
+html_nodes(senate, xpath='//table[@class="sortable wikitable"][1]/tr/td[1]') %>% html_attr("style") %>% gsub("background-color:", "", .)
 
 
 # Red, Blue, Yellow, Yellow, White:
@@ -154,11 +177,12 @@ parties <- data.frame(party=partylist,
                       stringsAsFactors = FALSE
 )
 
+cleaned$Party.1[which(grepl('Independent', cleaned$Party.1))] <- "Independent"
 for (p in partylist){
-  parties[which(parties$party==p),]$count <- length(which(cleaned$Party==p))
+  parties[which(parties$party == p),]$count <- length(which(cleaned$Party.1 == p))
 }
-parties$frac=parties$count/parties$mbrtotal
-parties$remaining=parties$count
+parties$frac = parties$count / parties$mbrtotal
+parties$remaining = parties$count
 pngtitle <- "GRAPHIC"
 
 ballcount <- nrow(senlist) # count of representatives or members
@@ -179,36 +203,36 @@ pos <- computePositions(ballcount, shells,balldiameter)
 # This isn't very elegant, but it works:
 partyorder <- orderPartiesForPrinting(parties) # # (largest, third largest, fourth largest, ... smallest, second largest)
 # counter <- (1) # reset
-parties$remaining=parties$count # reset; did this above, but while testing, "belt & suspenders" applies.
+parties$remaining = parties$count # reset; did this above, but while testing, "belt & suspenders" applies.
 
 ############################################################
 # Now determine the colors for each ball in each row according to the 
 # proportions set out above.
-pos <- determineColors(pos,shells,parties, parties$count)
+pos <- determineColors(pos, shells, parties, parties$count)
 stopifnot (nrow(pos) == sum(parties$count)) # watch those off-by-one errors
 
 PNGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     pngtitle="USSenate2015",
-                     fontsize=18,
-                     graphics="quartz",
-                     outline=F, 
-                     boxsize=c(8, 8/goldenratio),
-                     cexval=3.2,
-                     yheight=1
+                     pngtitle = "USSenate2020",
+                     fontsize = 18,
+                     graphics = "quartz",
+                     outline = F, 
+                     boxsize = c(8, 8/goldenratio),
+                     cexval = 3.2,
+                     yheight = 1
 )
 
 SVGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     svgtitle="USSenate2015",
-                     fontsize=18,
-                     graphics="quartz",
-                     outline=F, 
-                     boxsize=c(8, 8/goldenratio),
-                     cexval=3.2,
-                     yheight=1
+                     svgtitle = "USSenate2020",
+                     fontsize = 18,
+                     graphics = "quartz",
+                     outline = F, 
+                     boxsize = c(8, 8/goldenratio),
+                     cexval = 3.2,
+                     yheight = 1
 )
 
 # EOF
