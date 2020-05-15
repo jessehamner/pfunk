@@ -3,6 +3,9 @@ require(shape)
 library(rvest)
 library(httr)
 
+homedir <- Sys.getenv('HOME')
+setwd(homedir)
+setwd('Dropbox/DataViz/pfunk')
 source("parliament.R")
 
 # Red, Blue, Yellow, White:
@@ -82,7 +85,7 @@ shells <-(0)
 ############################################################
 # Establish (via iteration) the relative size of the 
 # diagram, in "shells" of width (ballspacing):
-shells <- makeProportionalShells(r, ballcount, balldiameter, ballspacing, proportion)
+shells <- makeProportionalShells(ballcount, r, balldiameter, ballspacing, proportion)
 
 ############################################################
 # Compute positions of each ball:
@@ -192,7 +195,7 @@ shells <-(0)
 ############################################################
 # Establish (via iteration) the relative size of the 
 # diagram, in "shells" of width (ballspacing):
-shells <- makeProportionalShells(r, ballcount, balldiameter, ballspacing, proportion)
+shells <- makeProportionalShells(ballcount,r, balldiameter, ballspacing, proportion)
 
 ############################################################
 # Compute positions of each ball:
