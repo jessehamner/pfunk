@@ -1,10 +1,10 @@
 library(rvest)
 
 source("parliament.R")
-
+byear <- 2020
 btag <- read_html("https://en.wikipedia.org/wiki/Bundestag")
 
-# Get the sixth table on the page:
+# Get the whatever-th table on the page:
 diet <- btag %>%  html_nodes("table") %>% .[[3]] %>% html_table(fill = TRUE,
                                                                 header = TRUE,
                                                                 trim = TRUE)
@@ -25,6 +25,7 @@ pinfo$repcount <- as.numeric(pinfo$repcount)
 #keeps <- which(variable.names(replist) != "")
 #cleaned <- replist[,keeps,drop=FALSE]
 color <- as.character(color)
+color[length(color)+1 ] <- "#ffffff"
 pinfo <- cbind(pinfo, color, stringsAsFactors = FALSE)
 membercount <- sum(pinfo$repcount)
 partylist <- unique(pinfo$party)
@@ -53,8 +54,10 @@ shells <- makeProportionalShells(ballcount, r, balldiameter, ballspacing, propor
 # Compute positions of each ball:
 pos <- computePositions(ballcount, shells, balldiameter)
 
-partyorder <- orderPartiesForPrinting(pinfo) # # (largest, third largest, fourth largest, ... smallest, second largest)
-# pinfo$remaining = pinfo$repcount  # a reset; did this above, but while testing, "belt & suspenders" applies.
+partyorder <- orderPartiesForPrinting(pinfo) 
+# (largest, third largest, fourth largest, ... smallest, second largest)
+# pinfo$remaining = pinfo$repcount  
+# a reset; did this above, but while testing, "belt & suspenders" applies.
 
 pinfo2 <- pinfo[partyorder,]
 
@@ -65,7 +68,7 @@ stopifnot (nrow(pos) == sum(pinfo2$repcount)) # watch those off-by-one errors
 PNGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     pngtitle = "Bundestag2020",
+                     pngtitle = sprintf("Bundestag%g", byear),
                      fontsize = 14,
                      graphics = "quartz",
                      outline = F, 
