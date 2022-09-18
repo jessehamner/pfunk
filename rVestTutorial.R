@@ -5,24 +5,31 @@ library(httr)
 
 homedir <- Sys.getenv('HOME')
 setwd(homedir)
-setwd('Dropbox/DataViz/pfunk')
+setwd('OneDrive - UNT System/Documents')
+setwd('ACSO4620/pfunk-master')
 source("parliament.R")
 
+senatetable <- 6
+housetable <- 7
+
+thisyear <- as.integer(format(strptime(Sys.Date(), format="%Y-%m-%d"), "%Y"))
+
 # Red, Blue, Yellow, White:
-partycolors <- as.vector( c("#bb0000", "#0000de", "#f0f000", "#ffffff"), mode="character")
+partycolors <- as.vector(c("#bb0000", "#0000de", "#f0f000", "#ffffff"), 
+                         mode="character")
 
 # rVestTutorial.R : get the data for a parliament diagram automagically.
 # Then spit out a few graphics.
 # 
 # Jesse Hamner
 # jhamner@gmail.com
-# V1.1, August 2018
-
+# V1.2, March 2022
 
 
 ################ Main #################
-
-housepage <- "http://en.wikipedia.org/wiki/Current_members_of_the_United_States_House_of_Representatives"
+wikiroot <- 'http://en.wikipedia.org/wiki'
+senatepage <- sprintf("%s/List_of_current_United_States_Senators", wikiroot)
+housepage <- sprintf("%s/Current_members_of_the_United_States_House_of_Representatives", wikiroot)
 hp1 <- GET(housepage)
 if(identical(status_code(hp1), 200L)){
   house <- read_html(hp1)
@@ -31,10 +38,10 @@ if(identical(status_code(hp1), 200L)){
 }
 
 
-# Get the seventh table on the page:
+# Get the whatever-th table on the page:
 replist <- house %>%
 html_nodes("table") %>%
-.[[7]] %>% html_table()
+.[[housetable]] %>% html_table()
 
 # The Minnesota Democrats are, in places, listed as "DFL"
 # replist$Party[which(replist$Party=="DFL")] <- "Democratic"
@@ -47,7 +54,7 @@ partylist<-unique(replist[,4])
 parties <- data.frame(party=partylist, 
                       count=(0),
                       mbrtotal=(membercount),
-                      color=partycolors[1:length(partylist)],
+                      color=partycolors[1:length(partylist$Party)],
                       frac=(0),
                       remaining=(0),
                       stringsAsFactors = FALSE
@@ -55,8 +62,8 @@ parties <- data.frame(party=partylist,
 
 # parties$party <- factor(parties$party)
 
-for (p in partylist){
-  parties[which(parties$party == p),]$count <- length(which(cleaned$Party.1 == p))
+for (p in partylist$Party){
+  parties[which(parties$Party == p),]$count <- length(which(cleaned[,4] == p))
 }
 parties$frac = parties$count/parties$mbrtotal
 parties$remaining = parties$count
@@ -76,7 +83,7 @@ ballsum <-(0)
 proportion <- 1/3 # aesthetics; maybe I should try phi? might make Tufte happy.
 goldenratio <- (1 + sqrt(5))/2
 proportion <- 2 - goldenratio
-fontsize=14
+fontsize <- 14
 
 #  shells <- data.frame(x=0,y=0, linecolor="#000000", fillcolor="#ffffff")
 r <- (3)
@@ -89,7 +96,7 @@ shells <- makeProportionalShells(ballcount, r, balldiameter, ballspacing, propor
 
 ############################################################
 # Compute positions of each ball:
-pos <- computePositions(ballcount, shells,balldiameter)
+pos <- computePositions(ballcount, shells, balldiameter)
 
 ############################################################
 # compute colors of each ball:
@@ -116,7 +123,7 @@ stopifnot (nrow(pos) == sum(parties$count)) # watch those off-by-one errors
 PNGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     pngtitle="USHouse2020",
+                     pngtitle=sprintf("USHouse%g", thisyear),
                      fontsize=14,
                      graphics="quartz",
                      outline=F, 
@@ -128,7 +135,7 @@ PNGparliamentdiagram(pos,
 SVGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     svgtitle="USHouse2020",
+                     svgtitle=sprintf("USHouse%g", thisyear),
                      fontsize=14,
                      graphics="quartz",
                      outline=F, 
@@ -139,37 +146,32 @@ SVGparliamentdiagram(pos,
 
 
 # OK, now for the Senate:
-
-# senate <- html("http://en.wikipedia.org/wiki/United_States_Senate")
-senate <- read_html("http://en.wikipedia.org/wiki/List_of_current_United_States_Senators")
+senate <- read_html(senatepage)
 senlist <- senate %>%
   html_nodes("table") %>%
-  .[[5]] %>% html_table(fill = TRUE) # 1 is the short table, 5 is the long table
+  .[[senatetable]] %>% html_table(fill = TRUE)
 
 names(senlist) <- c("State", "Image", "Senator", "Party", "Party.1", "Born",
-                    "Occupation", "PreviousOffice", "AssumedOffice", "TermUp",
-                    "Residence")
+                    "Occupation", "PreviousOffice", "Education", 
+                    "AssumedOffice", "TermUp", "Residence")
 
 # The Minnesota Democrats are listed as "DFL"
+# senlist$Party.1[which(senlist$Party.1 == "Democratic-Farmer-Labor")] <- "Democratic"
 senlist$Party.1[which(senlist$Party.1 == "DFL")] <- "Democratic"
-senlist$Party.1[which(senlist$Party.1 == "Democratic-Farmer-Labor")] <- "Democratic"
 senlist$Party.1[which(senlist$Party.1 == "")] <- "Independent"
 senlist$Party.1[which(grepl('Independent', senlist$Party.1))] <- "Independent"
+senlist$Party.1[which(grepl('Republica*', senlist$Party.1, perl=TRUE, ignore.case = FALSE))] <- 'Republican'
+senlist$Party.1[which(grepl('Democrat*', senlist$Party.1, perl=TRUE, ignore.case = FALSE))] <- 'Democratic'
 keeps <- which(variable.names(senlist) != "")
 cleaned <- senlist[,keeps,drop=FALSE]
 membercount <- nrow(cleaned)
+stopifnot(membercount == 100)
 
-party = senate %>%
-  html_nodes("table") %>%
-  .[[5]] %>% html_nodes("style") %>% html_attrs()
 partylist<-unique(senlist$Party.1)
 
-
-html_nodes(senate, xpath='//table[@class="sortable wikitable"][1]/tr/td[1]') %>% html_attr("style") %>% gsub("background-color:", "", .)
-
-
 # Red, Blue, Yellow, Yellow, White:
-partycolors <- as.vector( c("#bb0000", "#0000de", "#f0f000", "#f0f000", "#ffffff"), mode="character")
+partycolors <- as.vector(c("#bb0000", "#0000de", "#f0f000", "#f0f000", "#ffffff"),
+                         mode="character")
 
 parties <- data.frame(party=partylist, 
                       count=(0),
@@ -180,7 +182,6 @@ parties <- data.frame(party=partylist,
                       stringsAsFactors = FALSE
 )
 
-cleaned$Party.1[which(grepl('Independent', cleaned$Party.1))] <- "Independent"
 for (p in partylist){
   parties[which(parties$party == p),]$count <- length(which(cleaned$Party.1 == p))
 }
@@ -189,6 +190,7 @@ parties$remaining = parties$count
 pngtitle <- "GRAPHIC"
 
 ballcount <- nrow(senlist) # count of representatives or members
+stopifnot(ballcount == 100)
 r <- (3)
 shells <-(0)
 
@@ -202,22 +204,24 @@ shells <- makeProportionalShells(ballcount,r, balldiameter, ballspacing, proport
 pos <- computePositions(ballcount, shells,balldiameter)
 
 ############################################################
+# Compute ordering of parties in the diagram:
+# (largest, third largest, fourth largest, ... smallest, second largest)
+# This isn't elegant, but it works.
+partyorder <- orderPartiesForPrinting(parties) # 
 
-# This isn't very elegant, but it works:
-partyorder <- orderPartiesForPrinting(parties) # # (largest, third largest, fourth largest, ... smallest, second largest)
-# counter <- (1) # reset
-parties$remaining = parties$count # reset; did this above, but while testing, "belt & suspenders" applies.
+parties$remaining = parties$count # did this above, but while testing, "belt & suspenders" applies.
+
 
 ############################################################
 # Now determine the colors for each ball in each row according to the 
 # proportions set out above.
 pos <- determineColors(pos, shells, parties, parties$count)
-stopifnot (nrow(pos) == sum(parties$count)) # watch those off-by-one errors
+stopifnot (nrow(pos) == sum(parties$count)) # Watch for off-by-one errors
 
 PNGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     pngtitle = "USSenate2020",
+                     pngtitle = sprintf("USSenate%g", thisyear),
                      fontsize = 18,
                      graphics = "quartz",
                      outline = F, 
@@ -229,7 +233,7 @@ PNGparliamentdiagram(pos,
 SVGparliamentdiagram(pos,
                      shells,
                      ballcount,
-                     svgtitle = "USSenate2020",
+                     svgtitle = sprintf("USSenate%g", thisyear),
                      fontsize = 18,
                      graphics = "quartz",
                      outline = F, 

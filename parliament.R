@@ -31,7 +31,7 @@ ballspacing <- 1.0
 
 ballsum <-(0)
 proportion <- 1/3               # proportion of inner radius (empty) to outer radius
-goldenratio <- (1 + sqrt(5))/2  # maybe I should try phi? might make Tufte happy.
+goldenratio <- (1 + sqrt(5))/2  # maybe I should try phi? Might make Tufte happy.
 proportion <- 2 - goldenratio   # There, that's better.
 fontsize=14
 
@@ -96,7 +96,9 @@ ballPosition <- function (radius, balldiameter, position, theta, arcsep) {
 # next smallest group
 # ...
 # second largest group
-# helps contiguity of small parties where many parties exist. Shouldn't affect two party systems at all
+# helps contiguity of small parties where many parties exist. 
+# In two party systems, there may be vacant seats and that, in effect,
+# counts as a "party" for purposes of organizing the graphic.
 orderPartiesForPrinting <- function (parties) {
   vect <- (c(which.max(parties$count), order(parties$count)))
   vect[length(vect)] <- NA
@@ -114,13 +116,19 @@ orderPFP <- function(somevector) {
 }
 
 
-#     skip if parties$remaining is zero
-#     IF shell is greater than parties$remaining, THEN print one on this line no matter what, and decrement "remaining". 
-#     ELSE IF shell is NOT greater than parties[party,]$remaining THEN 
-#       get a naive count of circles to print for the party, on this line, as a proportion of their party
-#       add the fraction overflow from the previous line
-#       figure up a floor + fraction for the party, for this line
-#       write the fraction overflow back to parties[party,]$frac
+# skip if parties$remaining is zero
+# IF 
+#   - shell is greater than parties$remaining, 
+# THEN 
+#   - print one on this line no matter what, and decrement "remaining". 
+# ELSE IF 
+#   - shell is NOT greater than parties[party,]$remaining, 
+# THEN 
+#   - get a naive count of circles to print for the party, on this line, 
+#     as a proportion of their party
+#   - add the fraction overflow from the previous line
+#   - figure up a floor + fraction for the party, for this line
+#   - write the fraction overflow back to parties[party,]$frac
 
 ########################################################
 # apportions percentages into integer ball counts:
@@ -130,8 +138,8 @@ thisRowMatrix <- function(shell,ballframe,partyframe){
   # create temporary matrix from the count of parties:  
   tempm <- matrix(data=0, ncol=3, nrow=nrow(partyframe))
   
-  # partyframe ("parties" data frame) won't be dynamically updated within this function. 
-  # As a result, we need to account for the changes locally.
+  # partyframe ("parties" data frame) isn't dynamically updated within this function. 
+  # As a result, must account for the changes within scope.
   remaining <- as.vector(partyframe$remaining, mode="numeric")
   
   # how many balls in this row?
@@ -142,7 +150,7 @@ thisRowMatrix <- function(shell,ballframe,partyframe){
     # if this party has no more remaining slots, *before doing anything*, skip:    
     if (partyframe[i,]$remaining == 0) { next }
     
-    # Compute the expected proportion of parties      
+    # Compute the expected proportion of parties: 
     #   tempm[i] <- as.vector(c(partyframe[i,]$frac * ballcount, floor(tempm[i,1]), (tempm[i,1]) %% 1))
     tempm[i,1] <- partyframe[i,]$frac * ballcount
     tempm[i,2] <- floor(tempm[i,1])
@@ -200,8 +208,8 @@ apportionThisRow <- function(shell, ballframe, partyframe) {
   balltotal <- (ballframe[shell,]$balls) # redundant
   if (balltotal == 0 ) { return (0)  }
   
-  # may have to adjust the actual ball count on each row for each party positively or negatively
-  # (thus, the carry fraction might be negative, or positive and greater than one)
+  # may adjust ball count on each row for each party positively or negatively
+  # thus, the carry fraction might be negative, or positive and greater than one
   thisrowm <- thisRowMatrix(shell, ballframe, partyframe)
   
   # now we know how to apportion them for this row.
@@ -254,7 +262,11 @@ populateShells <- function(r, ballcount, balldiameter, radiusmultiplier) {
 
 computePositions <- function(ballcount,shells,balldiameter) {
   
-  pos <- data.frame(x=0,y=1:ballcount, linecolor="#000000", fillcolor="#ffffff", stringsAsFactors=FALSE )
+  pos <- data.frame(x=0, y=1:ballcount, 
+                    linecolor="#000000", 
+                    fillcolor="#ffffff", 
+                    stringsAsFactors=FALSE
+                   )
   counter <- (1)
   
   for (i in 1:(nrow(shells))) {
@@ -285,7 +297,6 @@ plotParliamentDiagram <- function(pos,shells,labeltext, cexval, yheight) {
       yaxs="i", 
       mar=c(0,0,0,0), 
       oma=c(0,0,0,0)
-      #     omd=c(1,1,1,1)
   )
   plot(pos$x, pos$y, 
        pch=21, 
@@ -388,8 +399,8 @@ PNGparliamentdiagram <- function(pos,
 } 
 
 # May need to handle these somewhere: FIXME
-#plot.new()
-#emptyplot()
+# plot.new()
+# emptyplot()
 
 drawOutline <- function(shells){
   require(shape)
